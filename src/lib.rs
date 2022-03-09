@@ -1,6 +1,6 @@
 #![feature(slice_as_chunks)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 const WORD_SIZE: usize = 5;
 
@@ -10,6 +10,7 @@ const TRIES_BEFORE_LOSS: usize = 32;
 
 pub type Word = [u8; WORD_SIZE];
 pub type Dictionary = HashSet<&'static Word>;
+pub type DictionaryWithCounts = HashMap<&'static Word, usize>;
 
 pub trait RepresentableAsWord {
     fn as_word(&self) -> &Word;
@@ -146,30 +147,22 @@ mod tests {
         }
 
         #[test]
-        fn guess_second_time_correctly() {
+        fn guess_third_time_correctly() {
             let wordle: Wordle = Wordle::new(
                 DICTIONARY
                     .split_ascii_whitespace()
                     .map(|word_str| word_str.as_word()),
             );
 
-            pub struct GuessesThirdTimeCorrectly {
-                guesses_made: usize,
-            }
-
-            impl Guesser for GuessesThirdTimeCorrectly {
-                fn guess(&mut self, _past_guesses: &[Guess]) -> Word {
-                    self.guesses_made += 1;
-                    if self.guesses_made == 3 {
-                        return b"moved".to_owned();
-                    }
-
-                    b"which".to_owned()
-                }
-            }
-
-            let guesser = assert_eq!(
-                wordle.play(b"moved", GuessesThirdTimeCorrectly { guesses_made: 0 }),
+            assert_eq!(
+                wordle.play(
+                    b"moved",
+                    guesser!(|past: &[Guess]| if past.len() == 2 {
+                        b"moved".to_owned()
+                    } else {
+                        b"which".to_owned()
+                    })
+                ),
                 Some(3)
             );
         }
