@@ -1,10 +1,10 @@
 extern crate roget;
 
-mod unoptimized;
+mod algorithms;
 
+use algorithms::Unoptimized;
 use roget::{RepresentableAsWord, Wordle};
 use std::collections::HashMap;
-use unoptimized::Unoptimized;
 
 const GAMES: &'static str = include_str!("../answers.txt");
 const DICTIONARY: &'static str = include_str!("../dictionary.txt");
