@@ -12,8 +12,7 @@ impl<'l> Unoptimized<'l> {
 }
 
 impl<'l> Guesser for Unoptimized<'l> {
-    fn guess(&mut self, past_guesses: &[Guess]) -> Word {
-        past_guesses;
+    fn guess(&mut self, _past_guesses: &[Guess]) -> Word {
         b"which".to_owned()
     }
 }
