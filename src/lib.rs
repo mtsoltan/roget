@@ -74,11 +74,6 @@ pub enum Correctness {
 }
 
 impl Correctness {
-    /// Check can't just check for misplaced using:
-    /// ```
-    /// answer.contains(&guessed_word[i])
-    /// ```
-    /// because it takes care of counts when deciding whether it is misplaced or wrong.
     fn check(answer: &'static Word, guessed_word: Word) -> [Self; WORD_SIZE] {
         let mut rv = [Self::Wrong; WORD_SIZE];
         let mut used = [false; WORD_SIZE];
@@ -89,6 +84,8 @@ impl Correctness {
             };
         }
 
+        // Check can't just check for misplaced using: `answer.contains(&guessed_word[i])`
+        // because it takes care of counts when deciding whether it is misplaced or wrong.
         for i in 0..WORD_SIZE {
             for j in 0..WORD_SIZE {
                 if rv[i] != Self::Correct && !used[j] && answer[j] == guessed_word[i] {
@@ -119,16 +116,16 @@ impl Guesser for fn(past_guesses: &[Guess]) -> Word {
     }
 }
 
-macro_rules! guesser {
-    ($func:expr) => {
-        ($func) as fn(past_guesses: &[Guess]) -> Word
-    };
-}
-
 #[cfg(test)]
 mod tests {
     mod play_wordle {
         use crate::{Guess, Guesser, RepresentableAsWord, Word, Wordle};
+
+        macro_rules! guesser {
+            ($func:expr) => {
+                ($func) as fn(past_guesses: &[Guess]) -> Word
+            };
+        }
 
         const DICTIONARY: &'static str = include_str!("../dictionary.txt");
 

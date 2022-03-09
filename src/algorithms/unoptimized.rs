@@ -1,5 +1,4 @@
 use roget::{Dictionary, DictionaryWithCounts, Guess, Guesser, Word};
-use std::collections::HashMap;
 
 pub struct Unoptimized<'l> {
     dictionary: &'l Dictionary,
