@@ -53,12 +53,6 @@ impl Wordle {
         for i in 1..=TRIES_BEFORE_LOSS {
             let guessed_word = guesser.guess(&past_guesses[..]);
             assert!(self.dictionary.contains(&guessed_word));
-            println!(
-                "We guessed the word {} on the attempt number {}",
-                guessed_word.escape_ascii(),
-                i
-            );
-
             if guessed_word.eq(answer) {
                 return Some(i);
             }

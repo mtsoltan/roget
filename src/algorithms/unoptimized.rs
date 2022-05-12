@@ -57,7 +57,7 @@ impl<'l> Guesser for Unoptimized<'l> {
         let total_count: usize = self.remaining.values().sum();
 
         for (&word, &count) in &self.remaining {
-            todo!("This just gets the rarest word. Actually calculate information correctly");
+            // todo!("This just gets the rarest word. Actually calculate information correctly");
             let information = -f64::log2(count as f64 / total_count as f64);
             // A new guess is better if it has more information.
             if best.is_none() || information > best.unwrap().information {
@@ -72,14 +72,6 @@ impl<'l> Guesser for Unoptimized<'l> {
         assert!(best.is_some(), "Our guesser has to find at least one word");
 
         let best = best.unwrap();
-
-        println!(
-            "From {} remaining words, the unoptimized guesser guessed {} \
-            because it gave us the highest information score of {}",
-            self.remaining.len(),
-            best.word.escape_ascii(),
-            best.information
-        );
 
         best.word
     }
