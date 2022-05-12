@@ -1,15 +1,21 @@
 #![feature(slice_as_chunks)]
 
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 
-const WORD_SIZE: usize = 5;
+pub const WORD_SIZE: usize = 5;
 
 /// Wordle only allows six guesses. We allow more to avoid chopping off the score distribution
 /// for stats purposes.
 const TRIES_BEFORE_LOSS: usize = 32;
 
 pub type Word = [u8; WORD_SIZE];
+
+/// A Dictionary is a set of words.
 pub type Dictionary = HashSet<&'static Word>;
+
+/// A DictionaryWithCounts is a set of words alongside a usize that gives us an indication of how
+/// frequently this word is encountered in the English language.
 pub type DictionaryWithCounts = HashMap<&'static Word, usize>;
 
 pub trait RepresentableAsWord {
@@ -47,6 +53,11 @@ impl Wordle {
         for i in 1..=TRIES_BEFORE_LOSS {
             let guessed_word = guesser.guess(&past_guesses[..]);
             assert!(self.dictionary.contains(&guessed_word));
+            println!(
+                "We guessed the word {} on the attempt number {}",
+                guessed_word.escape_ascii(),
+                i
+            );
 
             if guessed_word.eq(answer) {
                 return Some(i);
@@ -74,7 +85,7 @@ pub enum Correctness {
 }
 
 impl Correctness {
-    fn check(answer: &'static Word, guessed_word: Word) -> [Self; WORD_SIZE] {
+    pub fn check(answer: &'static Word, guessed_word: &Word) -> [Self; WORD_SIZE] {
         let mut rv = [Self::Wrong; WORD_SIZE];
         let mut used = [false; WORD_SIZE];
         for i in 0..WORD_SIZE {
@@ -101,17 +112,17 @@ impl Correctness {
 }
 
 pub struct Guess {
-    word: Word,
-    mask: [Correctness; WORD_SIZE],
+    pub word: &'static Word,
+    pub mask: [Correctness; WORD_SIZE],
 }
 
 pub trait Guesser {
-    fn guess(&mut self, past_guesses: &[Guess]) -> Word;
+    fn guess(&mut self, past_guesses: &[Guess]) -> &'static Word;
 }
 
 /// We want to allow functions to be guessers, which just calls `self` on `past_guesses`.
-impl Guesser for fn(past_guesses: &[Guess]) -> Word {
-    fn guess(&mut self, past_guesses: &[Guess]) -> Word {
+impl Guesser for fn(past_guesses: &[Guess]) -> &'static Word {
+    fn guess(&mut self, past_guesses: &[Guess]) -> &'static Word {
         (*self)(past_guesses)
     }
 }
@@ -123,7 +134,7 @@ mod tests {
 
         macro_rules! guesser {
             ($func:expr) => {
-                ($func) as fn(past_guesses: &[Guess]) -> Word
+                ($func) as fn(past_guesses: &[Guess]) -> &'static Word
             };
         }
 
@@ -138,7 +149,7 @@ mod tests {
             );
 
             assert_eq!(
-                wordle.play(b"moved", guesser!(|_past: &[Guess]| b"moved".to_owned())),
+                wordle.play(b"moved", guesser!(|_past: &[Guess]| b"moved")),
                 Some(1)
             );
         }
@@ -154,11 +165,7 @@ mod tests {
             assert_eq!(
                 wordle.play(
                     b"moved",
-                    guesser!(|past: &[Guess]| if past.len() == 2 {
-                        b"moved".to_owned()
-                    } else {
-                        b"which".to_owned()
-                    })
+                    guesser!(|past: &[Guess]| if past.len() == 2 { b"moved" } else { b"which" })
                 ),
                 Some(3)
             );
@@ -175,8 +182,8 @@ mod tests {
             pub struct DoesNotGuessCorrectly;
 
             impl Guesser for DoesNotGuessCorrectly {
-                fn guess(&mut self, _past_guesses: &[Guess]) -> Word {
-                    b"which".to_owned()
+                fn guess(&mut self, _past_guesses: &[Guess]) -> &'static Word {
+                    b"which"
                 }
             }
 
@@ -196,50 +203,32 @@ mod tests {
 
         #[test]
         fn all_green() {
-            assert_eq!(
-                Correctness::check(b"hello", b"hello".to_owned()),
-                mask![C C C C C]
-            );
+            assert_eq!(Correctness::check(b"hello", b"hello"), mask![C C C C C]);
         }
 
         #[test]
         fn all_gray() {
-            assert_eq!(
-                Correctness::check(b"hello", b"pqrst".to_owned()),
-                mask![W W W W W]
-            );
+            assert_eq!(Correctness::check(b"hello", b"pqrst"), mask![W W W W W]);
         }
 
         #[test]
         fn all_yellow() {
-            assert_eq!(
-                Correctness::check(b"hello", b"llohe".to_owned()),
-                mask![M M M M M]
-            );
+            assert_eq!(Correctness::check(b"hello", b"llohe"), mask![M M M M M]);
         }
 
         #[test]
         fn actual_words() {
-            assert_eq!(
-                Correctness::check(b"hello", b"world".to_owned()),
-                mask![W M W C W]
-            );
+            assert_eq!(Correctness::check(b"hello", b"world"), mask![W M W C W]);
         }
 
         #[test]
         fn guess_single_letter() {
-            assert_eq!(
-                Correctness::check(b"hello", b"lllll".to_owned()),
-                mask![W W C C W]
-            );
+            assert_eq!(Correctness::check(b"hello", b"lllll"), mask![W W C C W]);
         }
 
         #[test]
         fn guess_with_more_of_a_letter_than_needed() {
-            assert_eq!(
-                Correctness::check(b"azzaz", b"aaabb".to_owned()),
-                mask![C M W W W]
-            );
+            assert_eq!(Correctness::check(b"azzaz", b"aaabb"), mask![C M W W W]);
         }
     }
 }
