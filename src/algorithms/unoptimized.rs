@@ -8,7 +8,7 @@ struct Candidate {
 
     /// The count coming form the DictionaryWithCounts value parameter. This lets us know how
     /// frequent this word is in the English language.
-    occurrence_count: usize,
+    occurrence_count: f64,
 
     /// How much this candidate will reduce the space of possible states.
     /// Information of 2 bits means that the candidate will cut the remaining space to one fourth
@@ -56,7 +56,7 @@ impl<'l> Guesser for Unoptimized<'l> {
         let mut best: Option<Candidate> = None;
 
         // We loop over every remaining guess, borrowing words and counts:
-        let total_occurrence_count: usize = self.remaining.values().sum();
+        let total_occurrence_count = self.remaining.values().sum::<f64>();
         let current_event_space_size = self.remaining.len();
 
         for (&word, &occurrence_count) in &self.remaining {
@@ -65,38 +65,46 @@ impl<'l> Guesser for Unoptimized<'l> {
             // satisfy this mask, take the negative log (the information of the mask), then
             // calculate the expected value across all masks to get a measure of the quality of
             // the word.
-            let masks_with_counts = self
+            let masks_with_probabilities = self
                 .remaining
-                .keys()
-                .map(|future_guess| Correctness::check(word, &future_guess))
+                .iter()
+                .map(|(future_guess, future_occurrence_count)| {
+                    (
+                        future_occurrence_count,
+                        Correctness::check(word, &future_guess),
+                    )
+                })
                 .fold(
                     HashMap::new(),
-                    |mut histogram: HashMap<[Correctness; 5], usize>, mask| {
-                        let counter = histogram.entry(mask).or_insert(0);
-                        *counter += 1;
-                        histogram
+                    |mut acc: HashMap<[Correctness; 5], f64>, (future_occurrence_count, mask)| {
+                        // An accumulator entry represents the sum of probabilities of words that
+                        // are possible guesses given that a specific mask (key of acc) results.
+                        let acc_entry = acc.entry(mask).or_insert(0.0);
+                        *acc_entry += future_occurrence_count / total_occurrence_count;
+                        acc
                     },
                 );
 
-            let expected_information = masks_with_counts
+            // Entropy is the expected value of information, where an expected value is defined to
+            // be `Σp(x)⋅x`, and information is defined to be `-log2(p(x))`.
+            // Entropy is a measure of the uniformity of a distribution, and the number of
+            // possibilities within it.
+            let entropy = -masks_with_probabilities
                 .values()
-                .map(|&count| {
-                    let p = count as f64 / current_event_space_size as f64;
-                    -p * f64::log2(p)
-                })
+                .map(|&probability| probability * f64::log2(probability))
                 .sum::<f64>();
 
             // A new guess is better if no guess was previously made, or if the new guess has more
             // information, or has the same exact information but is more common.
             if best.is_none()
-                || expected_information > best.unwrap().expected_information
-                || (expected_information == best.unwrap().expected_information
+                || entropy > best.unwrap().expected_information
+                || (entropy == best.unwrap().expected_information
                     && occurrence_count > best.unwrap().occurrence_count)
             {
                 best = Some(Candidate {
                     word,
                     occurrence_count,
-                    expected_information,
+                    expected_information: entropy,
                 });
             }
         }

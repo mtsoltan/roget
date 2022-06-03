@@ -30,6 +30,14 @@ fn main() {
     for (i, answer) in GAMES.lines().enumerate() {
         let guesser = Unoptimized::new(wordle.get_dictionary(), initial_remaining.clone());
         guesses_required[i] = wordle.play(&answer.as_word(), guesser);
+
+        println!(
+            "Guessed {} ({} / {}) in {} attempts.",
+            &answer,
+            i,
+            GAMES_LENGTH,
+            guesses_required[i].unwrap_or(0)
+        );
     }
     let end = Instant::now();
 

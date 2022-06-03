@@ -15,7 +15,7 @@ pub type Dictionary = HashSet<&'static Word>;
 
 /// A DictionaryWithCounts is a set of words alongside a usize that gives us an indication of how
 /// frequently this word is encountered in the English language.
-pub type DictionaryWithCounts = HashMap<&'static Word, usize>;
+pub type DictionaryWithCounts = HashMap<&'static Word, f64>;
 
 pub trait RepresentableAsWord {
     fn as_word(&self) -> &Word;
