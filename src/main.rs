@@ -27,19 +27,22 @@ fn main() {
     let mut guesses_required = [None; GAMES_LENGTH];
 
     let start = Instant::now();
+    let mut end = Instant::now();
     for (i, answer) in GAMES.lines().enumerate() {
         let guesser = Unoptimized::new(wordle.get_dictionary(), initial_remaining.clone());
         guesses_required[i] = wordle.play(&answer.as_word(), guesser);
 
+        end = Instant::now();
+
         println!(
-            "Guessed {} ({} / {}) in {} attempts.",
+            "Guessed {} ({} / {}) in {} attempts. Cumulative time: {:?}",
             &answer,
             i,
             GAMES_LENGTH,
-            guesses_required[i].unwrap_or(0)
+            guesses_required[i].unwrap_or(0),
+            end.duration_since(start)
         );
     }
-    let end = Instant::now();
 
     // println!("{:?}", guesses_required);
 

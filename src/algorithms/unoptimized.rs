@@ -57,7 +57,6 @@ impl<'l> Guesser for Unoptimized<'l> {
 
         // We loop over every remaining guess, borrowing words and counts:
         let total_occurrence_count = self.remaining.values().sum::<f64>();
-        let current_event_space_size = self.remaining.len();
 
         for (&word, &occurrence_count) in &self.remaining {
             // We need to find all the masks that can result from using this word, calculate
