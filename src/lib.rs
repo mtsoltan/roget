@@ -1,7 +1,6 @@
 #![feature(slice_as_chunks)]
 
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
 
 pub const WORD_SIZE: usize = 5;
 
@@ -50,11 +49,12 @@ impl Wordle {
         // play six rounds where it invokes the guesser each round
         let mut past_guesses = Vec::new();
 
-        for i in 1..=TRIES_BEFORE_LOSS {
+        for attempt_index in 1..=TRIES_BEFORE_LOSS {
             let guessed_word = guesser.guess(&past_guesses[..]);
             assert!(self.dictionary.contains(&guessed_word));
+
             if guessed_word.eq(answer) {
-                return Some(i);
+                return Some(attempt_index);
             }
 
             let correctness_mask = Correctness::check(answer, guessed_word);
