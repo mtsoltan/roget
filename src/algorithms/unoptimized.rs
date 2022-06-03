@@ -1,4 +1,5 @@
 use roget::{Correctness, Dictionary, DictionaryWithCounts, Guess, Guesser, Word, WORD_SIZE};
+use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone)]
 struct Candidate {
@@ -7,12 +8,12 @@ struct Candidate {
 
     /// The count coming form the DictionaryWithCounts value parameter. This lets us know how
     /// frequent this word is in the English language.
-    count: usize,
+    occurrence_count: usize,
 
     /// How much this candidate will reduce the space of possible states.
     /// Information of 2 bits means that the candidate will cut the remaining space to one fourth
     /// of it's current size.
-    information: f64,
+    expected_information: f64,
 }
 
 pub struct Unoptimized<'l> {
@@ -37,9 +38,10 @@ impl<'l> Guesser for Unoptimized<'l> {
     /// the largest information, and return that.
     fn guess(&mut self, past_guesses: &[Guess]) -> &'static Word {
         if let Some(last) = past_guesses.last() {
-            // We retain words in `remaining` that, if we check against them with this specific
-            // last guess, will return the mask we encountered.
-            self.remaining.retain(|word, _count| {
+            // We retain words in `remaining` that are guessable after the last word we guessed.
+            // Since this process happens once per guess, we don't need to iterate over al past
+            // guesses, as those have been filtered out when those past guesses were made.
+            self.remaining.retain(|word, _| {
                 let mask = Correctness::check(word, last.word);
                 for i in 0..WORD_SIZE {
                     if mask[i] != last.mask[i] {
@@ -54,24 +56,52 @@ impl<'l> Guesser for Unoptimized<'l> {
         let mut best: Option<Candidate> = None;
 
         // We loop over every remaining guess, borrowing words and counts:
-        let total_count: usize = self.remaining.values().sum();
+        let total_occurrence_count: usize = self.remaining.values().sum();
+        let current_event_space_size = self.remaining.len();
 
-        for (&word, &count) in &self.remaining {
-            // todo!("This just gets the rarest word. Actually calculate information correctly");
-            let information = -f64::log2(count as f64 / total_count as f64);
-            // A new guess is better if it has more information.
-            if best.is_none() || information > best.unwrap().information {
+        for (&word, &occurrence_count) in &self.remaining {
+            // We need to find all the masks that can result from using this word, calculate
+            // the probability of each as the amount of words in the remaining dictionary that
+            // satisfy this mask, take the negative log (the information of the mask), then
+            // calculate the expected value across all masks to get a measure of the quality of
+            // the word.
+            let masks_with_counts = self
+                .remaining
+                .keys()
+                .map(|future_guess| Correctness::check(word, &future_guess))
+                .fold(
+                    HashMap::new(),
+                    |mut histogram: HashMap<[Correctness; 5], usize>, mask| {
+                        let counter = histogram.entry(mask).or_insert(0);
+                        *counter += 1;
+                        histogram
+                    },
+                );
+
+            let expected_information = masks_with_counts
+                .values()
+                .map(|&count| {
+                    let p = count as f64 / current_event_space_size as f64;
+                    -p * f64::log2(p)
+                })
+                .sum::<f64>();
+
+            // A new guess is better if no guess was previously made, or if the new guess has more
+            // information, or has the same exact information but is more common.
+            if best.is_none()
+                || expected_information > best.unwrap().expected_information
+                || (expected_information == best.unwrap().expected_information
+                    && occurrence_count > best.unwrap().occurrence_count)
+            {
                 best = Some(Candidate {
                     word,
-                    count,
-                    information,
-                })
+                    occurrence_count,
+                    expected_information,
+                });
             }
         }
 
-        assert!(best.is_some(), "Our guesser has to find at least one word");
-
-        let best = best.unwrap();
+        let best = best.expect("Our guesser has to find at least one word");
 
         best.word
     }
